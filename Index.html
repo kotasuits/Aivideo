@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>VidGen — AI Image to Video</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #080b10;
+    --surface: #0f1318;
+    --surface2: #161c24;
+    --border: #1e2730;
+    --accent: #00e5ff;
+    --accent2: #7b61ff;
+    --accent3: #ff6b6b;
+    --text: #e8edf2;
+    --muted: #5a6472;
+    --success: #00e096;
+    --warn: #ffb547;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── grid bg ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── glow orbs ── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: .18;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb1 { width: 500px; height: 500px; background: var(--accent2); top: -150px; right: -100px; }
+  .orb2 { width: 400px; height: 400px; background: var(--accent); bottom: -100px; left: -80px; }
+
+  /* ── layout ── */
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+  }
+
+  /* ── header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 52px;
+  }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.5rem;
+    letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--accent); }
+  .badge {
+    font-size: .65rem;
+    font-weight: 500;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid rgba(0,229,255,.3);
+    padding: 4px 10px;
+    border-radius: 100px;
+    background: rgba(0,229,255,.06);
+  }
+
+  /* ── api key section ── */
+  .api-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .api-label {
+    font-size: .7rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .api-section input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: .8rem;
+    padding: 10px 14px;
+    border-radius: 10px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .api-section input:focus { border-color: var(--accent); }
+  .api-section input::placeholder { color: var(--muted); }
+  .save-btn {
+    background: rgba(0,229,255,.1);
+    border: 1px solid rgba(0,229,255,.3);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: .75rem;
+    padding: 10px 18px;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all .2s;
+  }
+  .save-btn:hover { background: rgba(0,229,255,.18); }
+  .api-status {
+    font-size: .7rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+  .dot.active { background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+  /* ── card ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  /* ── upload zone ── */
+  .upload-zone {
+    position: relative;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    transition: background .2s;
+    background: var(--surface);
+  }
+  .upload-zone:hover, .upload-zone.drag { background: var(--surface2); }
+  .upload-zone.has-image { background: #000; padding: 0; }
+
+  #fileInput { display: none; }
+
+  .upload-icon {
+    width: 56px; height: 56px;
+    border-radius: 16px;
+    background: rgba(0,229,255,.08);
+    border: 1px solid rgba(0,229,255,.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem;
+  }
+  .upload-hint {
+    text-align: center;
+  }
+  .upload-hint strong {
+    display: block;
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .upload-hint span { font-size: .75rem; color: var(--muted); }
+
+  #previewImg {
+    width: 100%;
+    max-height: 360px;
+    object-fit: contain;
+    display: none;
+  }
+  .img-overlay {
+    position: absolute;
+    top: 12px; right: 12px;
+    background: rgba(8,11,16,.8);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: .7rem;
+    color: var(--muted);
+    cursor: pointer;
+    display: none;
+    transition: color .2s;
+  }
+  .img-overlay:hover { color: var(--accent3); }
+
+  /* ── controls ── */
+  .controls {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .field-label {
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: .82rem;
+    line-height: 1.6;
+    padding: 14px 16px;
+    border-radius: 12px;
+    resize: vertical;
+    min-height: 90px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+
+  /* row of small selects */
+  .opts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+  .opt-block label { display: block; }
+  select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: .78rem;
+    padding: 10px 12px;
+    border-radius: 10px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color .2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a6472' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+  }
+  select:focus { border-color: var(--accent); }
+  select option { background: var(--surface2); }
+
+  /* ── generate button ── */
+  .gen-btn {
+    position: relative;
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    color: #fff;
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    cursor: pointer;
+    overflow: hidden;
+    transition: opacity .2s, transform .15s;
+  }
+  .gen-btn:hover { opacity: .9; transform: translateY(-1px); }
+  .gen-btn:active { transform: translateY(0); }
+  .gen-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+  .gen-btn .btn-shimmer {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,.15) 50%, transparent 60%);
+    transform: translateX(-100%);
+    animation: shimmer 2.4s infinite;
+  }
+  @keyframes shimmer { to { transform: translateX(200%); } }
+
+  /* ── progress ── */
+  .progress-wrap {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .progress-wrap.show { display: flex; }
+  .progress-bar-bg {
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 99px;
+    width: 0%;
+    transition: width .4s ease;
+  }
+  .progress-text {
+    font-size: .72rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .spinner {
+    width: 12px; height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── result ── */
+  .result-section {
+    display: none;
+    margin-top: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+  }
+  .result-section.show { display: block; }
+  .result-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .result-title {
+    font-family: 'Syne', sans-serif;
+    font-size: .9rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .result-title::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 10px var(--success);
+  }
+  .dl-btn {
+    background: rgba(0,224,150,.1);
+    border: 1px solid rgba(0,224,150,.3);
+    color: var(--success);
+    font-family: 'DM Mono', monospace;
+    font-size: .72rem;
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dl-btn:hover { background: rgba(0,224,150,.2); }
+  .result-video {
+    width: 100%;
+    display: block;
+    max-height: 480px;
+    background: #000;
+  }
+  .result-meta {
+    padding: 12px 24px;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .meta-item { font-size: .68rem; color: var(--muted); }
+  .meta-item strong { color: var(--text); }
+
+  /* ── error ── */
+  .error-box {
+    display: none;
+    background: rgba(255,107,107,.07);
+    border: 1px solid rgba(255,107,107,.25);
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: .78rem;
+    color: var(--accent3);
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+  .error-box.show { display: block; }
+
+  /* ── tips ── */
+  .tips {
+    margin-top: 28px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .tip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 18px;
+  }
+  .tip-icon { font-size: 1.1rem; margin-bottom: 8px; }
+  .tip-title { font-family: 'Syne', sans-serif; font-size: .82rem; font-weight: 700; margin-bottom: 4px; }
+  .tip-body { font-size: .72rem; color: var(--muted); line-height: 1.5; }
+
+  @media(max-width:560px) {
+    .opts-row { grid-template-columns: 1fr 1fr; }
+    .tips { grid-template-columns: 1fr; }
+    .api-section { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">Vid<span>Gen</span></div>
+    <div class="badge">Gemini Powered</div>
+  </header>
+
+  <!-- API Key -->
+  <div class="api-section">
+    <span class="api-label">API Key</span>
+    <input type="password" id="apiKeyInput" placeholder="Paste your Google AI Studio API key…"/>
+    <button class="save-btn" onclick="saveKey()">Save</button>
+    <div class="api-status">
+      <div class="dot" id="keyDot"></div>
+      <span id="keyStatus">Not set</span>
+    </div>
+  </div>
+
+  <!-- Main Card -->
+  <div class="card">
+
+    <!-- Upload -->
+    <div class="upload-zone" id="uploadZone" onclick="triggerUpload()">
+      <input type="file" id="fileInput" accept="image/*" onchange="handleFile(this.files[0])"/>
+      <img id="previewImg" alt="preview"/>
+      <div class="upload-icon" id="uploadIcon">🖼️</div>
+      <div class="upload-hint" id="uploadHint">
+        <strong>Drop image here or click to upload</strong>
+        <span>JPG, PNG, WEBP — the AI will animate it</span>
+      </div>
+      <div class="img-overlay" id="imgOverlay" onclick="clearImage(event)">✕ Remove</div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+
+      <div>
+        <div class="field-label">Animation Prompt</div>
+        <textarea id="promptInput" placeholder="Describe how to animate the image… e.g. 'Gentle breeze moving through the trees, cinematic slow motion, golden hour light'"></textarea>
+      </div>
+
+      <div class="opts-row">
+        <div class="opt-block">
+          <div class="field-label">Duration</div>
+          <select id="duration">
+            <option value="5">5 seconds</option>
+            <option value="6">6 seconds</option>
+            <option value="7">7 seconds</option>
+            <option value="8" selected>8 seconds</option>
+          </select>
+        </div>
+        <div class="opt-block">
+          <div class="field-label">Aspect Ratio</div>
+          <select id="aspectRatio">
+            <option value="16:9" selected>16:9 Landscape</option>
+            <option value="9:16">9:16 Portrait</option>
+            <option value="1:1">1:1 Square</option>
+          </select>
+        </div>
+        <div class="opt-block">
+          <div class="field-label">Model</div>
+          <select id="model">
+            <option value="veo-2.0-generate-001" selected>Veo 2.0</option>
+            <option value="veo-3.0-generate-preview">Veo 3.0 Preview</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="gen-btn" id="genBtn" onclick="generate()">
+        <div class="btn-shimmer"></div>
+        ✦ Generate Video
+      </button>
+
+      <!-- Progress -->
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
+        <div class="progress-text"><div class="spinner"></div><span id="progressText">Initializing…</span></div>
+      </div>
+
+      <!-- Error -->
+      <div class="error-box" id="errorBox"></div>
+
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="result-section" id="resultSection">
+    <div class="result-header">
+      <div class="result-title">Video Generated</div>
+      <a class="dl-btn" id="dlBtn" href="#" download="vidgen-output.mp4">⬇ Download MP4</a>
+    </div>
+    <video class="result-video" id="resultVideo" controls playsinline></video>
+    <div class="result-meta">
+      <div class="meta-item">Model: <strong id="metaModel">—</strong></div>
+      <div class="meta-item">Duration: <strong id="metaDuration">—</strong></div>
+      <div class="meta-item">Ratio: <strong id="metaRatio">—</strong></div>
+      <div class="meta-item">Generated: <strong id="metaTime">—</strong></div>
+    </div>
+  </div>
+
+  <!-- Tips -->
+  <div class="tips">
+    <div class="tip">
+      <div class="tip-icon">🎯</div>
+      <div class="tip-title">Best Prompts</div>
+      <div class="tip-body">Describe camera motion (pan, zoom, dolly), lighting changes, and subject movement. Be specific and cinematic.</div>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">🖼️</div>
+      <div class="tip-title">Best Images</div>
+      <div class="tip-body">High-resolution, clear images work best. Landscapes, portraits, and scenes with clear subjects animate well.</div>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">⏱️</div>
+      <div class="tip-title">Wait Time</div>
+      <div class="tip-body">Video generation takes 2–4 minutes. The page polls automatically — don't close your browser.</div>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">🔑</div>
+      <div class="tip-title">API Key Safety</div>
+      <div class="tip-body">Your key is stored only in your browser's localStorage — it never leaves your device or gets sent anywhere except Google.</div>
+    </div>
+  </div>
+
+</div><!-- /wrapper -->
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let imageBase64 = null;
+let imageMimeType = null;
+let pollTimer = null;
+
+// ── API Key ───────────────────────────────────────────────────────────────────
+function loadKey() {
+  const k = localStorage.getItem('gemini_api_key');
+  if (k) {
+    document.getElementById('apiKeyInput').value = k;
+    setKeyStatus(true);
+  }
+}
+
+function saveKey() {
+  const k = document.getElementById('apiKeyInput').value.trim();
+  if (!k) { alert('Please enter your API key first.'); return; }
+  localStorage.setItem('gemini_api_key', k);
+  setKeyStatus(true);
+}
+
+function setKeyStatus(active) {
+  document.getElementById('keyDot').className = 'dot' + (active ? ' active' : '');
+  document.getElementById('keyStatus').textContent = active ? 'Key saved' : 'Not set';
+}
+
+function getKey() {
+  return localStorage.getItem('gemini_api_key') || document.getElementById('apiKeyInput').value.trim();
+}
+
+// ── Upload / Preview ──────────────────────────────────────────────────────────
+function triggerUpload() {
+  if (!imageBase64) document.getElementById('fileInput').click();
+}
+
+function handleFile(file) {
+  if (!file) return;
+  imageMimeType = file.type || 'image/jpeg';
+  const reader = new FileReader();
+  reader.onload = e => {
+    imageBase64 = e.target.result.split(',')[1];
+    const img = document.getElementById('previewImg');
+    img.src = e.target.result;
+    img.style.display = 'block';
+    document.getElementById('uploadIcon').style.display = 'none';
+    document.getElementById('uploadHint').style.display = 'none';
+    document.getElementById('imgOverlay').style.display = 'block';
+    document.getElementById('uploadZone').classList.add('has-image');
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImage(e) {
+  e.stopPropagation();
+  imageBase64 = null;
+  imageMimeType = null;
+  document.getElementById('previewImg').style.display = 'none';
+  document.getElementById('previewImg').src = '';
+  document.getElementById('uploadIcon').style.display = 'flex';
+  document.getElementById('uploadHint').style.display = 'block';
+  document.getElementById('imgOverlay').style.display = 'none';
+  document.getElementById('uploadZone').classList.remove('has-image');
+  document.getElementById('fileInput').value = '';
+}
+
+// Drag & drop
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) handleFile(file);
+});
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+function setProgress(pct, text) {
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressText').textContent = text;
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = '⚠ ' + msg;
+  box.classList.add('show');
+}
+
+function clearError() {
+  document.getElementById('errorBox').classList.remove('show');
+}
+
+function setLoading(on) {
+  document.getElementById('genBtn').disabled = on;
+  document.getElementById('progressWrap').classList.toggle('show', on);
+  if (!on) { document.getElementById('progressBar').style.width = '0%'; }
+}
+
+// ── Generate ──────────────────────────────────────────────────────────────────
+async function generate() {
+  clearError();
+
+  const key = getKey();
+  if (!key) { showError('Please enter and save your Google AI Studio API key first.'); return; }
+  if (!imageBase64) { showError('Please upload an image to animate.'); return; }
+
+  const prompt = document.getElementById('promptInput').value.trim() || 'Animate this image with gentle, natural motion. Cinematic quality.';
+  const duration = parseInt(document.getElementById('duration').value);
+  const aspectRatio = document.getElementById('aspectRatio').value;
+  const model = document.getElementById('model').value;
+
+  setLoading(true);
+  document.getElementById('resultSection').classList.remove('show');
+
+  try {
+    setProgress(10, 'Sending request to Gemini…');
+
+    const body = {
+      instances: [{
+        prompt: prompt,
+        image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType }
+      }],
+      parameters: {
+        aspectRatio: aspectRatio,
+        durationSeconds: duration,
+        sampleCount: 1,
+        personGeneration: "allow_adult"
+      }
+    };
+
+    const resp = await fetch(
+      `https://us-central1-aiplatform.googleapis.com/v1/projects/generativeai/locations/us-central1/publishers/google/models/${model}:predictLongRunning`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json',
+          'x-goog-api-key': key
+        },
+        body: JSON.stringify(body)
+      }
+    );
+
+    // Try Gemini Developer API (AI Studio) endpoint
+    if (!resp.ok || resp.status === 401) {
+      // Use the Gemini API direct endpoint
+      setProgress(15, 'Switching to AI Studio endpoint…');
+      await generateViaGeminiAPI(key, imageBase64, imageMimeType, prompt, duration, aspectRatio, model);
+      return;
+    }
+
+    const data = await resp.json();
+    if (data.name) {
+      await pollOperation(key, data.name, model);
+    } else {
+      throw new Error(data.error?.message || 'Unexpected response from API.');
+    }
+
+  } catch (err) {
+    setLoading(false);
+    showError(err.message || 'An error occurred. Check your API key and try again.');
+  }
+}
+
+async function generateViaGeminiAPI(key, b64, mime, prompt, duration, aspectRatio, model) {
+  setProgress(20, 'Submitting to Gemini Video API…');
+
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateVideo?key=${key}`;
+
+  const body = {
+    contents: [{
+      role: "user",
+      parts: [
+        { inlineData: { data: b64, mimeType: mime } },
+        { text: prompt }
+      ]
+    }],
+    generationConfig: {
+      responseModalities: ["video"],
+      videoGenerationConfig: {
+        durationSeconds: duration,
+        aspectRatio: aspectRatio,
+        fps: 24
+      }
+    }
+  };
+
+  const resp = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  const data = await resp.json();
+
+  if (!resp.ok) {
+    throw new Error(data.error?.message || `API error ${resp.status}: ${resp.statusText}`);
+  }
+
+  // Long-running operation
+  if (data.name) {
+    await pollGeminiOperation(key, data.name);
+  } else if (data.candidates) {
+    handleVideoResponse(data, model, duration, aspectRatio);
+  } else {
+    throw new Error('No operation or video returned. The model may not support this feature on your key tier.');
+  }
+}
+
+async function pollGeminiOperation(key, operationName) {
+  setProgress(30, 'Video is being generated (this takes 2–4 min)…');
+
+  const steps = [
+    [35, 'Processing image…'],
+    [45, 'Generating motion frames…'],
+    [55, 'Rendering video…'],
+    [65, 'Encoding output…'],
+    [72, 'Almost there…'],
+    [78, 'Finalizing video…'],
+    [84, 'Applying polish…'],
+    [90, 'Nearly done…'],
+  ];
+  let stepIdx = 0;
+  const tickInterval = setInterval(() => {
+    if (stepIdx < steps.length) {
+      setProgress(steps[stepIdx][0], steps[stepIdx][1]);
+      stepIdx++;
+    }
+  }, 18000);
+
+  const pollUrl = `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${key}`;
+  let attempts = 0;
+  const maxAttempts = 60;
+
+  while (attempts < maxAttempts) {
+    await delay(6000);
+    attempts++;
+
+    const r = await fetch(pollUrl);
+    const d = await r.json();
+
+    if (d.error) { clearInterval(tickInterval); throw new Error(d.error.message); }
+
+    if (d.done) {
+      clearInterval(tickInterval);
+      if (d.error) throw new Error(d.error.message);
+      setProgress(98, 'Downloading video…');
+      await handleLROResponse(d.response || d);
+      return;
+    }
+  }
+
+  clearInterval(tickInterval);
+  throw new Error('Generation timed out after 6 minutes. Please try again.');
+}
+
+async function handleLROResponse(response) {
+  // Extract video data from LRO response
+  let videoData = null;
+
+  if (response.generateVideoResponse) response = response.generateVideoResponse;
+  if (response.candidates) {
+    for (const c of response.candidates) {
+      for (const p of (c.content?.parts || [])) {
+        if (p.fileData?.fileUri) {
+          // Fetch from file API
+          videoData = await fetchFileData(p.fileData.fileUri);
+          break;
+        }
+        if (p.inlineData?.data) {
+          videoData = { b64: p.inlineData.data, mime: p.inlineData.mimeType || 'video/mp4' };
+          break;
+        }
+      }
+    }
+  }
+  if (response.video?.uri) {
+    videoData = { uri: response.video.uri };
+  }
+
+  if (!videoData) throw new Error('Video generated but could not extract video data from response.');
+
+  showVideo(videoData);
+}
+
+function handleVideoResponse(data, model, duration, aspectRatio) {
+  // Sync response handling
+  for (const c of (data.candidates || [])) {
+    for (const p of (c.content?.parts || [])) {
+      if (p.inlineData?.data) {
+        showVideo({ b64: p.inlineData.data, mime: p.inlineData.mimeType || 'video/mp4' });
+        return;
+      }
+      if (p.fileData?.fileUri) {
+        showVideo({ uri: p.fileData.fileUri });
+        return;
+      }
+    }
+  }
+  throw new Error('No video found in response.');
+}
+
+async function fetchFileData(fileUri) {
+  const key = getKey();
+  const r = await fetch(fileUri + (fileUri.includes('?') ? '&' : '?') + `key=${key}`);
+  if (!r.ok) return { uri: fileUri };
+  const blob = await r.blob();
+  return new Promise(res => {
+    const reader = new FileReader();
+    reader.onload = e => res({ b64: e.target.result.split(',')[1], mime: blob.type || 'video/mp4' });
+    reader.readAsDataURL(blob);
+  });
+}
+
+function showVideo(videoData) {
+  setProgress(100, 'Done!');
+  setLoading(false);
+
+  const model = document.getElementById('model').value;
+  const duration = document.getElementById('duration').value;
+  const ratio = document.getElementById('aspectRatio').value;
+
+  document.getElementById('metaModel').textContent = model;
+  document.getElementById('metaDuration').textContent = duration + 's';
+  document.getElementById('metaRatio').textContent = ratio;
+  document.getElementById('metaTime').textContent = new Date().toLocaleTimeString();
+
+  const video = document.getElementById('resultVideo');
+  const dlBtn = document.getElementById('dlBtn');
+
+  if (videoData.b64) {
+    const src = `data:${videoData.mime || 'video/mp4'};base64,${videoData.b64}`;
+    video.src = src;
+    dlBtn.href = src;
+  } else if (videoData.uri) {
+    video.src = videoData.uri;
+    dlBtn.href = videoData.uri;
+  }
+
+  document.getElementById('resultSection').classList.add('show');
+  document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function pollOperation(key, opName, model) {
+  // Vertex AI operation polling (fallback)
+  setProgress(25, 'Operation queued, polling…');
+  const url = `https://us-central1-aiplatform.googleapis.com/v1/${opName}`;
+  let attempts = 0;
+  while (attempts < 60) {
+    await delay(6000);
+    attempts++;
+    const r = await fetch(url, { headers: { 'Authorization': `Bearer ${key}`, 'x-goog-api-key': key } });
+    const d = await r.json();
+    if (d.done) {
+      if (d.error) throw new Error(d.error.message);
+      setProgress(95, 'Extracting video…');
+      await handleLROResponse(d.response || d);
+      return;
+    }
+    const pct = Math.min(25 + attempts * 1.1, 90);
+    setProgress(pct, 'Generating video… ' + (attempts * 6) + 's elapsed');
+  }
+  throw new Error('Timed out. Please try again.');
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadKey();
+</script>
+</body>
+</html>
