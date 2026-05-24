@@ -7,102 +7,501 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
   :root {
-    --bg: #080b10;
-    --surface: #0f1318;
-    --surface2: #161c24;
-    --border: #1e2730;
-    --accent: #00e5ff;
-    --accent2: #7b61ff;
-    --accent3: #ff6b6b;
-    --text: #e8edf2;
-    --muted: #5a6472;
-    --success: #00e096;
-    --warn: #ffb547;
+    --bg:#080b10;--surface:#0f1318;--surface2:#161c24;--border:#1e2730;
+    --accent:#00e5ff;--accent2:#7b61ff;--accent3:#ff6b6b;
+    --text:#e8edf2;--muted:#5a6472;--success:#00e096;--warn:#ffb547;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;overflow-x:hidden}
+  body::before{content:'';position:fixed;inset:0;
+    background-image:linear-gradient(rgba(0,229,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,.03) 1px,transparent 1px);
+    background-size:40px 40px;pointer-events:none;z-index:0}
+  .orb{position:fixed;border-radius:50%;filter:blur(120px);opacity:.15;pointer-events:none;z-index:0}
+  .orb1{width:500px;height:500px;background:var(--accent2);top:-150px;right:-100px}
+  .orb2{width:400px;height:400px;background:var(--accent);bottom:-100px;left:-80px}
+  .wrapper{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:40px 20px 80px}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:48px}
+  .logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.5rem;letter-spacing:-.5px}
+  .logo span{color:var(--accent)}
+  .badge{font-size:.65rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);
+    border:1px solid rgba(0,229,255,.3);padding:4px 10px;border-radius:100px;background:rgba(0,229,255,.06)}
+
+  /* API key bar */
+  .api-bar{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .api-label{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+  .api-bar input{flex:1;min-width:200px;background:var(--surface2);border:1px solid var(--border);
+    color:var(--text);font-family:'DM Mono',monospace;font-size:.8rem;padding:9px 13px;
+    border-radius:9px;outline:none;transition:border-color .2s}
+  .api-bar input:focus{border-color:var(--accent)}
+  .api-bar input::placeholder{color:var(--muted)}
+  .save-btn{background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.3);color:var(--accent);
+    font-family:'DM Mono',monospace;font-size:.75rem;padding:9px 16px;border-radius:9px;
+    cursor:pointer;transition:all .2s;white-space:nowrap}
+  .save-btn:hover{background:rgba(0,229,255,.2)}
+  .key-status{display:flex;align-items:center;gap:6px;font-size:.7rem;color:var(--muted)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+  .dot.on{background:var(--success);box-shadow:0 0 8px var(--success)}
+
+  /* card */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden}
+
+  /* upload */
+  .upload-zone{position:relative;border-bottom:1px solid var(--border);cursor:pointer;
+    min-height:240px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;transition:background .2s}
+  .upload-zone:hover,.upload-zone.drag{background:var(--surface2)}
+  .upload-zone.filled{background:#000;cursor:default}
+  #fileInput{display:none}
+  .upload-icon{width:54px;height:54px;border-radius:14px;background:rgba(0,229,255,.08);
+    border:1px solid rgba(0,229,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.4rem}
+  .upload-hint{text-align:center}
+  .upload-hint strong{display:block;font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700;margin-bottom:4px}
+  .upload-hint span{font-size:.73rem;color:var(--muted)}
+  #previewImg{width:100%;max-height:340px;object-fit:contain;display:none}
+  .remove-btn{position:absolute;top:12px;right:12px;background:rgba(8,11,16,.85);
+    border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:.7rem;
+    color:var(--muted);cursor:pointer;display:none}
+  .remove-btn:hover{color:var(--accent3)}
+
+  /* controls */
+  .controls{padding:22px;display:flex;flex-direction:column;gap:15px}
+  .field-label{font-size:.67rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+  textarea{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);
+    font-family:'DM Mono',monospace;font-size:.81rem;line-height:1.6;padding:13px 15px;
+    border-radius:11px;resize:vertical;min-height:86px;outline:none;transition:border-color .2s}
+  textarea:focus{border-color:var(--accent)}
+  textarea::placeholder{color:var(--muted)}
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);
+    font-family:'DM Mono',monospace;font-size:.78rem;padding:10px 32px 10px 12px;
+    border-radius:10px;outline:none;cursor:pointer;transition:border-color .2s;appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a6472' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 12px center}
+  select:focus{border-color:var(--accent)}
+  select option{background:var(--surface2)}
+
+  /* generate button */
+  .gen-btn{position:relative;width:100%;padding:15px;border:none;border-radius:13px;
+    background:linear-gradient(135deg,var(--accent2),var(--accent));color:#fff;
+    font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer;
+    overflow:hidden;transition:opacity .2s,transform .15s}
+  .gen-btn:hover{opacity:.9;transform:translateY(-1px)}
+  .gen-btn:active{transform:translateY(0)}
+  .gen-btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+  .shimmer{position:absolute;inset:0;
+    background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.15) 50%,transparent 60%);
+    transform:translateX(-100%);animation:sh 2.4s infinite}
+  @keyframes sh{to{transform:translateX(200%)}}
+
+  /* progress */
+  .prog-wrap{display:none;flex-direction:column;gap:9px}
+  .prog-wrap.show{display:flex}
+  .prog-bg{height:3px;background:var(--surface2);border-radius:99px;overflow:hidden}
+  .prog-bar{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));
+    border-radius:99px;width:0%;transition:width .5s ease}
+  .prog-text{font-size:.71rem;color:var(--muted);display:flex;align-items:center;gap:8px}
+  .spin{width:11px;height:11px;border:2px solid var(--border);border-top-color:var(--accent);
+    border-radius:50%;animation:sp .8s linear infinite;flex-shrink:0}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* error */
+  .err{display:none;background:rgba(255,107,107,.07);border:1px solid rgba(255,107,107,.25);
+    border-radius:11px;padding:13px 17px;font-size:.77rem;color:var(--accent3);
+    margin-top:4px;line-height:1.55}
+  .err.show{display:block}
+
+  /* result */
+  .result{display:none;margin-top:26px;background:var(--surface);
+    border:1px solid var(--border);border-radius:18px;overflow:hidden}
+  .result.show{display:block}
+  .result-hd{padding:15px 22px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between}
+  .result-title{font-family:'Syne',sans-serif;font-size:.88rem;font-weight:700;
+    display:flex;align-items:center;gap:8px}
+  .result-title::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;
+    background:var(--success);box-shadow:0 0 10px var(--success)}
+  .dl-btn{background:rgba(0,224,150,.1);border:1px solid rgba(0,224,150,.3);color:var(--success);
+    font-family:'DM Mono',monospace;font-size:.71rem;padding:7px 13px;border-radius:8px;
+    cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:5px;transition:all .2s}
+  .dl-btn:hover{background:rgba(0,224,150,.2)}
+  #resultVideo{width:100%;display:block;max-height:460px;background:#000}
+  .result-meta{padding:11px 22px;display:flex;gap:18px;flex-wrap:wrap}
+  .mi{font-size:.67rem;color:var(--muted)}
+  .mi strong{color:var(--text)}
+
+  /* info box */
+  .info-box{margin-top:26px;background:var(--surface);border:1px solid var(--border);
+    border-radius:14px;padding:18px 22px}
+  .info-title{font-family:'Syne',sans-serif;font-size:.82rem;font-weight:700;
+    color:var(--warn);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+  .info-list{display:flex;flex-direction:column;gap:7px}
+  .info-item{font-size:.74rem;color:var(--muted);line-height:1.5;
+    padding-left:14px;position:relative}
+  .info-item::before{content:'›';position:absolute;left:0;color:var(--accent)}
+
+  /* tips */
+  .tips{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .tip{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:15px 17px}
+  .tip-icon{font-size:1rem;margin-bottom:7px}
+  .tip-t{font-family:'Syne',sans-serif;font-size:.8rem;font-weight:700;margin-bottom:3px}
+  .tip-b{font-size:.71rem;color:var(--muted);line-height:1.5}
+
+  @media(max-width:560px){
+    .opts{grid-template-columns:1fr}
+    .tips{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="wrapper">
+
+  <header>
+    <div class="logo">Vid<span>Gen</span></div>
+    <div class="badge">Veo · AI Studio</div>
+  </header>
+
+  <!-- API Key -->
+  <div class="api-bar">
+    <span class="api-label">API Key</span>
+    <input type="password" id="apiInput" placeholder="Paste your Google AI Studio API key…"/>
+    <button class="save-btn" onclick="saveKey()">Save Key</button>
+    <div class="key-status"><div class="dot" id="dot"></div><span id="keyMsg">Not set</span></div>
+  </div>
+
+  <!-- Card -->
+  <div class="card">
+    <!-- Upload -->
+    <div class="upload-zone" id="zone" onclick="onZoneClick()">
+      <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif" onchange="onFile(this.files[0])"/>
+      <img id="previewImg" alt="preview"/>
+      <div class="upload-icon" id="uIcon">🖼️</div>
+      <div class="upload-hint" id="uHint">
+        <strong>Click or drop an image here</strong>
+        <span>JPG · PNG · WEBP — the AI will animate it</span>
+      </div>
+      <button class="remove-btn" id="removeBtn" onclick="clearImg(event)">✕ Remove</button>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <div>
+        <div class="field-label">Animation Prompt</div>
+        <textarea id="prompt" placeholder="Describe the motion… e.g. 'Slow cinematic zoom, golden hour light, gentle breeze through the leaves'"></textarea>
+      </div>
+      <div class="opts">
+        <div>
+          <div class="field-label">Aspect Ratio</div>
+          <select id="aspect">
+            <option value="16:9" selected>16:9 — Landscape</option>
+            <option value="9:16">9:16 — Portrait</option>
+            <option value="1:1">1:1 — Square</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">Model</div>
+          <select id="model">
+            <option value="veo-3.0-generate-preview" selected>Veo 3.0 (best quality)</option>
+            <option value="veo-2.0-generate-001">Veo 2.0 (faster)</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="gen-btn" id="genBtn" onclick="generate()">
+        <div class="shimmer"></div>
+        ✦ Generate Video
+      </button>
+
+      <div class="prog-wrap" id="progWrap">
+        <div class="prog-bg"><div class="prog-bar" id="progBar"></div></div>
+        <div class="prog-text"><div class="spin"></div><span id="progTxt">Starting…</span></div>
+      </div>
+
+      <div class="err" id="errBox"></div>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="result" id="result">
+    <div class="result-hd">
+      <div class="result-title">Video Ready</div>
+      <a class="dl-btn" id="dlBtn" href="#" download="vidgen.mp4">⬇ Download</a>
+    </div>
+    <video id="resultVideo" controls playsinline></video>
+    <div class="result-meta">
+      <div class="mi">Model: <strong id="mModel">—</strong></div>
+      <div class="mi">Ratio: <strong id="mRatio">—</strong></div>
+      <div class="mi">Time: <strong id="mTime">—</strong></div>
+    </div>
+  </div>
+
+  <!-- Important info -->
+  <div class="info-box">
+    <div class="info-title">⚡ How this works</div>
+    <div class="info-list">
+      <div class="info-item">Your API key is saved only in your browser — never sent anywhere except Google's servers.</div>
+      <div class="info-item">Video generation is a long-running operation. It takes <strong>2–5 minutes</strong> — the page polls automatically every 10 seconds.</div>
+      <div class="info-item">Veo 3.0 requires a <strong>paid</strong> AI Studio / Gemini API account (billing enabled). Veo 2.0 is available on the free tier with limits.</div>
+      <div class="info-item">If you get a <em>CORS error</em>, use the <strong>Python backend</strong> version below — browsers cannot call the Gemini Files API directly for large uploads.</div>
+      <div class="info-item">Image is converted to base64 and sent as inline data — works for images under ~5 MB.</div>
+    </div>
+  </div>
+
+  <div class="tips">
+    <div class="tip">
+      <div class="tip-icon">🎯</div>
+      <div class="tip-t">Great Prompts</div>
+      <div class="tip-b">Mention camera motion (pan left, slow zoom), lighting (golden hour, neon), and subject action (waves crashing, petals falling).</div>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">🖼️</div>
+      <div class="tip-t">Best Images</div>
+      <div class="tip-b">Clear, high-res scenes work best. Landscapes, portraits, cityscapes, and nature shots animate beautifully.</div>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">❌</div>
+      <div class="tip-t">CORS Error?</div>
+      <div class="tip-b">Run the Python script (see README) which acts as a local proxy. Browsers block direct calls to some Google endpoints.</div>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">🔑</div>
+      <div class="tip-t">Free Tier Limits</div>
+      <div class="tip-b">Veo 2.0 has limited free quota. For unlimited use, enable billing in Google Cloud Console and use a paid key.</div>
+    </div>
+  </div>
+
+</div><!-- /wrapper -->
+
+<script>
+// ── State
+let imgB64 = null, imgMime = null;
+
+// ── Key management
+function loadKey(){
+  const k = localStorage.getItem('g_api_key');
+  if(k){ document.getElementById('apiInput').value = k; markKey(true); }
+}
+function saveKey(){
+  const k = document.getElementById('apiInput').value.trim();
+  if(!k){ alert('Enter your API key first.'); return; }
+  localStorage.setItem('g_api_key', k);
+  markKey(true);
+}
+function markKey(on){
+  document.getElementById('dot').className = 'dot' + (on?' on':'');
+  document.getElementById('keyMsg').textContent = on ? 'Key saved ✓' : 'Not set';
+}
+function getKey(){ return localStorage.getItem('g_api_key') || document.getElementById('apiInput').value.trim(); }
+
+// ── Upload
+function onZoneClick(){ if(!imgB64) document.getElementById('fileInput').click(); }
+function onFile(file){
+  if(!file) return;
+  if(file.size > 6*1024*1024){ showErr('Image too large. Please use an image under 6 MB.'); return; }
+  imgMime = file.type || 'image/jpeg';
+  const fr = new FileReader();
+  fr.onload = e => {
+    imgB64 = e.target.result.split(',')[1];
+    const img = document.getElementById('previewImg');
+    img.src = e.target.result; img.style.display = 'block';
+    document.getElementById('uIcon').style.display = 'none';
+    document.getElementById('uHint').style.display = 'none';
+    document.getElementById('removeBtn').style.display = 'block';
+    document.getElementById('zone').classList.add('filled');
+  };
+  fr.readAsDataURL(file);
+}
+function clearImg(e){
+  e.stopPropagation(); imgB64 = null; imgMime = null;
+  document.getElementById('previewImg').style.display='none';
+  document.getElementById('previewImg').src='';
+  document.getElementById('uIcon').style.display='flex';
+  document.getElementById('uHint').style.display='block';
+  document.getElementById('removeBtn').style.display='none';
+  document.getElementById('zone').classList.remove('filled');
+  document.getElementById('fileInput').value='';
+}
+
+// drag & drop
+const zone = document.getElementById('zone');
+zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', ()=> zone.classList.remove('drag'));
+zone.addEventListener('drop', e=>{
+  e.preventDefault(); zone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if(f && f.type.startsWith('image/')) onFile(f);
+});
+
+// ── UI helpers
+function setP(pct, txt){ document.getElementById('progBar').style.width=pct+'%'; document.getElementById('progTxt').textContent=txt; }
+function showErr(msg){ const b=document.getElementById('errBox'); b.innerHTML='⚠ '+msg; b.classList.add('show'); }
+function clearErr(){ document.getElementById('errBox').classList.remove('show'); }
+function setLoading(on){
+  document.getElementById('genBtn').disabled = on;
+  document.getElementById('progWrap').classList.toggle('show', on);
+  if(!on) document.getElementById('progBar').style.width='0%';
+}
+
+// ── Main generate
+async function generate(){
+  clearErr();
+  const key = getKey();
+  if(!key){ showErr('Save your Google AI Studio API key first.'); return; }
+  if(!imgB64){ showErr('Please upload an image first.'); return; }
+
+  const prompt = document.getElementById('prompt').value.trim()
+    || 'Animate this image with natural, cinematic motion. High quality, smooth movement.';
+  const aspect  = document.getElementById('aspect').value;
+  const model   = document.getElementById('model').value;
+
+  setLoading(true);
+  document.getElementById('result').classList.remove('show');
+
+  try {
+    setP(10, 'Submitting to Gemini API…');
+
+    // ── Step 1: Call generateVideo (long-running operation)
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateVideo?key=${encodeURIComponent(key)}`;
+
+    const body = {
+      prompt: prompt,
+      image: {
+        imageBytes: imgB64,
+        mimeType: imgMime
+      },
+      generationConfig: {
+        aspectRatio: aspect,
+        durationSeconds: 8
+      }
+    };
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    const data = await res.json();
+
+    if(!res.ok){
+      const msg = data?.error?.message || `HTTP ${res.status}: ${res.statusText}`;
+      // Give helpful hints for common errors
+      if(res.status === 400) throw new Error(msg + '\n\nTip: Make sure your image is a valid JPG/PNG/WEBP under 6 MB.');
+      if(res.status === 401 || res.status === 403) throw new Error('Invalid or unauthorized API key. Check your key at aistudio.google.com/apikey');
+      if(res.status === 429) throw new Error('Rate limit exceeded. Wait a moment and try again, or check your quota at console.cloud.google.com.');
+      if(res.status === 0 || msg.includes('Failed to fetch') || msg.includes('CORS')) {
+        throw new Error('CORS / network error: Your browser blocked the request.\n\nFix: Run the included python_proxy.py script as a local server, then reload this page.');
+      }
+      throw new Error(msg);
+    }
+
+    if(!data.name) throw new Error('No operation returned. Response: ' + JSON.stringify(data).slice(0,200));
+
+    // ── Step 2: Poll the operation
+    setP(20, 'Operation queued, polling every 10 seconds…');
+    const videoBlob = await pollOperation(key, data.name);
+
+    // ── Step 3: Show result
+    setP(100, 'Done!');
+    setLoading(false);
+
+    const url = URL.createObjectURL(videoBlob);
+    const vid  = document.getElementById('resultVideo');
+    vid.src    = url;
+    document.getElementById('dlBtn').href = url;
+    document.getElementById('mModel').textContent = model;
+    document.getElementById('mRatio').textContent = aspect;
+    document.getElementById('mTime').textContent  = new Date().toLocaleTimeString();
+    document.getElementById('result').classList.add('show');
+    document.getElementById('result').scrollIntoView({ behavior:'smooth' });
+
+  } catch(err){
+    setLoading(false);
+    showErr(err.message.replace(/\n/g,'<br>'));
+  }
+}
+
+async function pollOperation(key, opName){
+  // opName looks like "operations/xxxx"
+  const pollUrl = `https://generativelanguage.googleapis.com/v1beta/${opName}?key=${encodeURIComponent(key)}`;
+
+  const stages = [
+    [30,'Generating video frames…'],
+    [42,'Rendering motion…'],
+    [54,'Encoding video…'],
+    [64,'Applying quality pass…'],
+    [73,'Almost done…'],
+    [80,'Finalizing…'],
+    [87,'Packaging output…'],
+    [93,'Nearly ready…'],
+  ];
+  let si = 0;
+  const tick = setInterval(()=>{ if(si < stages.length){ setP(...stages[si]); si++; } }, 20000);
+
+  for(let i = 0; i < 60; i++){          // max 10 min
+    await delay(10000);                  // wait 10 s
+    const r   = await fetch(pollUrl);
+    const d   = await r.json();
+
+    if(d.error){ clearInterval(tick); throw new Error(d.error.message); }
+
+    if(d.done){
+      clearInterval(tick);
+      setP(96,'Downloading video…');
+      return await extractVideo(d, key);
+    }
+  }
+  clearInterval(tick);
+  throw new Error('Timed out after 10 minutes. The video may still be generating — try checking your AI Studio dashboard.');
+}
+
+async function extractVideo(opData, key){
+  // Navigate the response structure
+  const resp  = opData.response || opData;
+  const videos = resp.generatedVideos || resp.videos || [];
+
+  if(videos.length === 0) throw new Error('Generation finished but no video found in response:\n' + JSON.stringify(opData).slice(0,300));
+
+  const vid = videos[0];
+
+  // Case 1: inline bytes
+  if(vid.video?.videoBytes || vid.videoBytes){
+    const b64  = vid.video?.videoBytes || vid.videoBytes;
+    const mime = vid.video?.mimeType   || vid.mimeType || 'video/mp4';
+    return b64ToBlob(b64, mime);
   }
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Mono', monospace;
-    min-height: 100vh;
-    overflow-x: hidden;
+  // Case 2: file URI — fetch it with the API key
+  const fileUri = vid.video?.uri || vid.uri || vid.gcsUri;
+  if(fileUri){
+    setP(97,'Fetching video file…');
+    // Add key if it's a googleapis URL
+    const fetchUrl = fileUri.includes('googleapis.com')
+      ? fileUri + (fileUri.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(key)
+      : fileUri;
+    const r = await fetch(fetchUrl);
+    if(!r.ok) throw new Error('Could not download video: ' + r.status);
+    return await r.blob();
   }
 
-  /* ── grid bg ── */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(0,229,255,.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,229,255,.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
-  }
+  throw new Error('Unknown video structure in response:\n' + JSON.stringify(opData).slice(0,400));
+}
 
-  /* ── glow orbs ── */
-  .orb {
-    position: fixed;
-    border-radius: 50%;
-    filter: blur(120px);
-    opacity: .18;
-    pointer-events: none;
-    z-index: 0;
-  }
-  .orb1 { width: 500px; height: 500px; background: var(--accent2); top: -150px; right: -100px; }
-  .orb2 { width: 400px; height: 400px; background: var(--accent); bottom: -100px; left: -80px; }
+function b64ToBlob(b64, mime){
+  const bytes = atob(b64);
+  const arr   = new Uint8Array(bytes.length);
+  for(let i=0;i<bytes.length;i++) arr[i]=bytes.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
 
-  /* ── layout ── */
-  .wrapper {
-    position: relative;
-    z-index: 1;
-    max-width: 860px;
-    margin: 0 auto;
-    padding: 40px 20px 80px;
-  }
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
-  /* ── header ── */
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 52px;
-  }
-  .logo {
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: 1.5rem;
-    letter-spacing: -0.5px;
-  }
-  .logo span { color: var(--accent); }
-  .badge {
-    font-size: .65rem;
-    font-weight: 500;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    color: var(--accent);
-    border: 1px solid rgba(0,229,255,.3);
-    padding: 4px 10px;
-    border-radius: 100px;
-    background: rgba(0,229,255,.06);
-  }
-
-  /* ── api key section ── */
-  .api-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 20px 24px;
-    margin-bottom: 28px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-  .api-label {
-    font-size: .7rem;
+loadKey();
+</script>
+</body>
+</html>    font-size: .7rem;
     letter-spacing: .1em;
     text-transform: uppercase;
     color: var(--muted);
